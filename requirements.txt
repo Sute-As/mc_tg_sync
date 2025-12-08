@@ -2,3 +2,4 @@ python-telegram-bot==20.*
 mcrcon
 aiofiles
 python-dotenv
+clickhouse-connect

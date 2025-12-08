@@ -22,7 +22,8 @@ mc_tg_chat_sync/
 │   ├── __init__.py
 │   ├── telegram_bot.py     # Логика бота
 │   ├── mc_log_reader.py    # (Minecraft -> Python)
-│   └── mc_rcon.py          # (Python -> Minecraft)
+│   ├── mc_rcon.py          # (Python -> Minecraft)
+│   └── dump_stack
 └── utils/
     ├── __init__.py
     └── parsers.py
