@@ -2,6 +2,7 @@ import subprocess
 import re
 import json
 import sys
+import telegram_bot
 
 CHAT_REGEX = re.compile(
     r"\[(?P<time>\d{2}:\d{2}:\d{2}) INFO]: <(?P<player>[^>]+)> (?P<message>.*)"
@@ -27,4 +28,5 @@ for line in process.stdout:
             "player": m.group("player"),
             "message": m.group("message")
         }
+        telegram_bot.get_message_form_rcon(m.group("player"), m.group("message"))
         print(json.dumps(event, ensure_ascii=False))
