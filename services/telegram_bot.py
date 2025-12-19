@@ -1,35 +1,53 @@
-import telebot
+import asyncio
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters import Command
 import mc_rcon
 
-TOKEN = "8153960157:AAG_Dbls0LPpZUO2pPbLnVdvDYXycUmv5nI"
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
+grps: set[int] = set()
 
-bot = telebot.TeleBot(TOKEN)
-grps = set()
 
-@bot.message_handler(commands=["start"])
-def start(message):
-    bot.send_message(message.chat.id, "Привет! Я бот синхронизирующий чаты группы тг и сервера в маинкрафте\n Чтобы я начал свою работу добавь меня в группу и напиши !add")
+@dp.message(Command("start"))
+async def start(message: types.Message):
+    ans = "Привет! Я бот синхронизирующий чаты группы тг и сервера в маинкрафте\n"
+    ans += "Чтобы я начал свою работу добавь меня в группу и напиши !add"
+    await message.answer(ans)
 
-@bot.message_handler(func=lambda message: message.chat.type in ['group', 'supergroup'])
-def new_message(message):
-    if (message.chat.id not in grps and message.text == "!add"):
-        bot.send_message(message.chat.id, "Группа добавлена в отслеживаемые группы")
+
+@dp.message(F.chat.type.in_({"group", "supergroup"}))
+async def group_message(message: types.Message):
+    if message.chat.id not in grps and message.text == "!add":
         grps.add(message.chat.id)
-    if (message.chat.id not in grps):
+        await message.answer("Группа добавлена в отслеживаемые группы")
+        return
+    if message.chat.id not in grps:
         return
     try:
-        mc_rcon.send_message(message.from_user.username, message.text)         
+        username = message.from_user.username
+        if (username is None):
+            username = message.from_user.ful_name
+        text = message.text or ""
+        if text:
+            mc_rcon.send_message(username, text)
     except Exception:
-        bot.send_message(message.chat.id, "Возникла ошибка при попытке отправить сообщение в чат маинкрафта")
+        await message.answer("Возникла ошибка при попытке отправить сообщение в чат Minecraft")
 
-@bot.message_handler(func=lambda message: True)
-def read_all_messages(message):
-    bot.reply_to(message, f"Ты сказал: {message.text}")
 
-def get_message_form_rcon(user: str, text: str):
+@dp.message()
+async def read_all_messages(message: types.Message):
+    await message.reply(f"Ты сказал: {message.text}")
+
+
+async def get_message_from_rcon(user: str, text: str):
     if not text:
         return
     for grp in grps:
-        bot.send_message(grp, f"{user} said {text}")
+        await bot.send_message(grp, f"{user} сказал {text}")
 
-bot.polling(non_stop=True)
+
+async def main():
+    await dp.start_polling(bot)
+
+
+asyncio.run(main())
