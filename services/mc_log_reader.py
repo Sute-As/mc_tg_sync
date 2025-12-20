@@ -1,30 +1,39 @@
-import subprocess
 import re
 import json
-import sys
+import asyncio
+import os
+import aiofiles
 
 CHAT_REGEX = re.compile(
-    r"\[(?P<time>\d{2}:\d{2}:\d{2}) INFO]: <(?P<player>[^>]+)> (?P<message>.*)"
+    r"\[(?P<time>\d{2}:\d{2}:\d{2})\] \[.*?/INFO\]: <(?P<player>[^>]+)> (?P<message>.*)"
 )
 
-process = subprocess.Popen(
-    ["java", "-Xms2G", "-Xmx2G", "-jar", "paper-1.21.10-115.jar", "--nogui"],
-    stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE,
-    text=True,
-    bufsize=1
-)
+log_path = "logs/latest.log"
 
-print("Сервер запущен. Читаю чат...\n")
-sys.stdout.flush()
 
-for line in process.stdout:
-    line = line.strip()
-    m = CHAT_REGEX.search(line)
-    if m:
-        event = {
-            "time": m.group("time"),
-            "player": m.group("player"),
-            "message": m.group("message")
-        }
-        print(json.dumps(event, ensure_ascii=False))
+async def watch_logs():
+    last_size = 0
+    f = await aiofiles.open(log_path, "r", encoding="utf-8")
+    await f.seek(0, 2)
+    while True:
+        if not os.path.exists(log_path):
+            await asyncio.sleep(0.1)
+            continue
+        size = os.path.getsize(log_path)
+        if size < last_size:
+            await f.close()
+            f = await aiofiles.open(log_path, "r", encoding="utf-8")
+            last_size = 0
+        line = await f.readline()
+        if not line:
+            last_size = size
+            await asyncio.sleep(0.1)
+            continue
+        m = CHAT_REGEX.search(line)
+        if m:
+            event = {
+                "time": m.group("time"),
+                "player": m.group("player"),
+                "message": m.group("message")
+            }
+            print(json.dumps(event, ensure_ascii=False))
