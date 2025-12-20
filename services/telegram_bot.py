@@ -21,7 +21,7 @@ async def group_message(message: types.Message):
     if message.text == "!add":
         if message.chat.id not in grps:
             grps.add(message.chat.id)
-            await message.answer(f"✅ Группа {message.chat.title} подключена!")
+            await message.answer(f"Группа {message.chat.title} подключена!")
         return
     if message.chat.id not in grps:
         return
