@@ -36,5 +36,6 @@ async def group_message(message: types.Message):
             i = 0
             while (i * 256 < len(text)):
                 await mc_rcon.send_message(username, text[i * 256: (i + 1) * 256])
+                i += 1
     except Exception as e:
         print(f"Ошибка отправки в MC: {e}")
