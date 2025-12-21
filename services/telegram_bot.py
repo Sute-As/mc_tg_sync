@@ -1,53 +1,40 @@
-import asyncio
+import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-import mc_rcon
+from config import TG_TOKEN
+from services import mc_rcon
 
-bot = Bot(token=TOKEN)
+bot = Bot(token=TG_TOKEN)
 dp = Dispatcher()
 grps: set[int] = set()
 
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    ans = "Привет! Я бот синхронизирующий чаты группы тг и сервера в маинкрафте\n"
+    ans = "Привет! Я бот синхронизирующий чаты группы тг и сервера в майнкрафте\n"
     ans += "Чтобы я начал свою работу добавь меня в группу и напиши !add"
     await message.answer(ans)
 
 
 @dp.message(F.chat.type.in_({"group", "supergroup"}))
 async def group_message(message: types.Message):
-    if message.chat.id not in grps and message.text == "!add":
-        grps.add(message.chat.id)
-        await message.answer("Группа добавлена в отслеживаемые группы")
+    if message.text == "!add":
+        if message.chat.id not in grps:
+            grps.add(message.chat.id)
+            await message.answer(f"Группа {message.chat.title} подключена!")
         return
     if message.chat.id not in grps:
         return
     try:
         username = message.from_user.username
-        if (username is None):
-            username = message.from_user.ful_name
+        if username is None:
+            username = message.from_user.full_name
         text = message.text or ""
+        if text.startswith("/"):
+            return
         if text:
-            mc_rcon.send_message(username, text)
-    except Exception:
-        await message.answer("Возникла ошибка при попытке отправить сообщение в чат Minecraft")
-
-
-@dp.message()
-async def read_all_messages(message: types.Message):
-    await message.reply(f"Ты сказал: {message.text}")
-
-
-async def get_message_from_rcon(user: str, text: str):
-    if not text:
-        return
-    for grp in grps:
-        await bot.send_message(grp, f"{user} сказал {text}")
-
-
-async def main():
-    await dp.start_polling(bot)
-
-
-asyncio.run(main())
+            i = 0
+            while (i * 256 < len(text)):
+                await mc_rcon.send_message(username, text[i * 256: (i + 1) * 256])
+    except Exception as e:
+        print(f"Ошибка отправки в MC: {e}")

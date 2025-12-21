@@ -1,27 +1,26 @@
+import asyncio
 from mcrcon import MCRcon
 from config import RCON_HOST, RCON_PORT, RCON_PASSWORD
-import asyncio
+from utils.db import db_logger
 
 
-def send_to_minecraft(user: str, text: str):
+def _send_sync(user: str, text: str):
     text_protect = text.replace('"', '\\"').replace('\\', '\\\\')
-    user_protect = user.replace('"', '\\"').replace('\\', '\\\\')
     json_payload = (
-        f'["",' 
-        f'{{"text":"[TG] ","color":"aqua","bold":true}},' 
-        f'{{"text":"{user_protect}","color":"gold"}},' 
-        f'{{"text":": {text_protect}","color":"white"}}' 
+        f'["",'
+        f'{{"text":"[TG] ","color":"aqua","bold":true}},'
+        f'{{"text":"{user}","color":"gold"}},'
+        f'{{"text":": {text_protect}","color":"white"}}'
         f']'
     )
     command = f'/tellraw @a {json_payload}'
     try:
-        with MCRcon(host=RCON_HOST, port=RCON_PORT, password=RCON_PASSWORD) as mcr:
-            response = mcr.command(command)
-    except ConnectionRefusedError:
-        print('ConnectionRefusedError')
+        with MCRcon(RCON_HOST, RCON_PASSWORD, port=RCON_PORT) as mcr:
+            mcr.command(command)
     except Exception as e:
-        print(f"RCON error: {e}")
+        print(f"❌ RCON Error: {e}")
 
 
 async def send_message(user: str, text: str):
-    await asyncio.to_thread(send_to_minecraft, user, text)
+    await db_logger.log_message(source="telegram", user=user, message=text)
+    await asyncio.to_thread(_send_sync, user, text)
