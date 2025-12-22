@@ -19,6 +19,8 @@ CH_USER = os.getenv("CH_USER", "default")
 CH_PASSWORD = os.getenv("CH_PASSWORD", "")
 CH_DB = os.getenv("CH_DB", "minecraft_chat")
 
+MC_LOG_PATH = os.getenv("MC_LOG_PATH")
+
 missing_vars = []
 if not TG_TOKEN:
     missing_vars.append("TG_TOKEN")

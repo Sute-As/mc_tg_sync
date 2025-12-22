@@ -24,7 +24,7 @@ class ChatLogger:
 
     def _init_db(self):
         if not self.client: return
-        schema = f"""
+        self.client.command(f"""
         CREATE TABLE IF NOT EXISTS {CH_DB}.chat_logs (
             event_time DateTime,
             source String,
@@ -32,9 +32,13 @@ class ChatLogger:
             message String
         ) ENGINE = MergeTree()
         ORDER BY event_time
-        """
-        self.client.command(schema)
-        print("ClickHouse: Таблица логов готова.")
+        """)
+        self.client.command(f"""
+        CREATE TABLE IF NOT EXISTS {CH_DB}.groups (
+            chat_id Int64
+        ) ENGINE = ReplacingMergeTree()
+        ORDER BY chat_id
+        """)
 
     def _insert_sync(self, source: str, user: str, message: str):
         if not self.client: return
@@ -47,5 +51,26 @@ class ChatLogger:
 
     async def log_message(self, source: str, user: str, message: str):
         await asyncio.to_thread(self._insert_sync, source, user, message)
+
+    async def save_group(self, chat_id: int):
+        if not self.client: return
+        self.client.command(f"INSERT INTO {CH_DB}.groups (chat_id) VALUES ({chat_id})")
+        print(f"Группа {chat_id} сохранена.")
+
+    async def get_groups(self):
+        if not self.client: return set()
+        result = self.client.query(f"SELECT chat_id FROM {CH_DB}.groups")
+        return {row[0] for row in result.result_rows}
+
+    async def update_user(self, tg_username: str, mc_name: str, count: int):
+        if not self.client: return
+        data = [[tg_username, mc_name, count]]
+        self.client.insert(f'{CH_DB}.users', data, column_names=['tg_username', 'mc_name', 'msg_count'])
+
+    async def load_users(self):
+        if not self.client: return {}
+        result = self.client.query(f"SELECT tg_username, mc_name, msg_count FROM {CH_DB}.users")
+        return {row[0]: {"mnname": row[1], "count": row[2]} for row in result.result_rows}
+
 
 db_logger = ChatLogger()

@@ -3,6 +3,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from config import TG_TOKEN
 from services import mc_rcon
+from utils.db import db_logger
 
 bot = Bot(token=TG_TOKEN)
 dp = Dispatcher()
@@ -21,6 +22,7 @@ async def group_message(message: types.Message):
     if message.text == "!add":
         if message.chat.id not in grps:
             grps.add(message.chat.id)
+            await db_logger.save_group(message.chat.id)
             await message.answer(f"Группа {message.chat.title} подключена!")
         return
     if message.chat.id not in grps:

@@ -3,15 +3,17 @@ import json
 import asyncio
 import os
 import aiofiles
+from config import MC_LOG_PATH
+from utils.db import db_logger
 
 CHAT_REGEX = re.compile(
     r"\[(?P<time>\d{2}:\d{2}:\d{2})\] \[.*?/INFO\]: <(?P<player>[^>]+)> (?P<message>.*)"
 )
 
-log_path = "logs/latest.log"
+log_path = MC_LOG_PATH
 
 
-async def watch_logs():
+async def watch_logs(bot, grps):
     last_size = 0
     f = await aiofiles.open(log_path, "r", encoding="utf-8")
     await f.seek(0, 2)
@@ -37,3 +39,18 @@ async def watch_logs():
                 "message": m.group("message")
             }
             print(json.dumps(event, ensure_ascii=False))
+
+            for chat_id in grps:
+                try:
+                    await bot.send_message(
+                        chat_id,
+                        f"<b>{m.group("player")}</b>: {m.group("message")}",
+                        parse_mode="HTML"
+                    )
+                except Exception as e:
+                    print(f"Ошибка отправки в TG: {e}")
+            await db_logger.log_message(
+                source="minecraft",
+                user=m.group("player"),
+                message=m.group("message")
+            )
