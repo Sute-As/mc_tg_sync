@@ -2,15 +2,13 @@ import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from config import TG_TOKEN
-from typing import Any
-import asyncio
 from services import mc_rcon
 from utils.db import db_logger
 
 bot = Bot(token=TG_TOKEN)
 dp = Dispatcher()
 grps: set[int] = set()
-users: dict[Any, Any] = await db_logger.load_users()
+users: dict[str, str] = {}
 
 
 @dp.message(Command("start"))
@@ -26,7 +24,7 @@ async def stat(message: types.Message):
         username = message.from_user.full_name
     inf = users.get(username)
     if not inf:
-        message.answer(f"Нет информации о данном пользователе")
+        await message.answer(f"Нет информации о данном пользователе")
     else:
         cntintg = inf["count"]
         mnname = inf["mnname"]
@@ -68,7 +66,7 @@ async def group_message(message: types.Message):
         inf = users.get(username, {"mnname": "Неизвестен", "count": 0})
         inf["count"] += 1
         users[username] = inf
-        await db_logger.update(username, inf["mnname"], inf["count"])
+        await db_logger.update_user(username, inf["mnname"], inf["count"])
         text = message.text or ""
         if text.startswith("/"):
             return

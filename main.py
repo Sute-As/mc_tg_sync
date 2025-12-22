@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from services.telegram_bot import bot, dp, grps
+from services.telegram_bot import bot, dp, grps, users
 from services.mc_log_reader import watch_logs
 from utils.db import db_logger
 
@@ -9,6 +9,8 @@ logging.basicConfig(level=logging.INFO)
 
 async def main():
     saved_groups = await db_logger.get_groups()
+    loaded_users = await db_logger.load_users()
+    users.update(loaded_users)
     if saved_groups:
         grps.clear()
         grps.update(saved_groups)
