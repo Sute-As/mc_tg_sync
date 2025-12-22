@@ -2,12 +2,15 @@ import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from config import TG_TOKEN
+from typing import Any
+import asyncio
 from services import mc_rcon
 from utils.db import db_logger
 
 bot = Bot(token=TG_TOKEN)
 dp = Dispatcher()
 grps: set[int] = set()
+users: dict[Any, Any] = await db_logger.load_users()
 
 
 @dp.message(Command("start"))
@@ -15,6 +18,36 @@ async def start(message: types.Message):
     ans = "Привет! Я бот синхронизирующий чаты группы тг и сервера в майнкрафте\n"
     ans += "Чтобы я начал свою работу добавь меня в группу и напиши !add"
     await message.answer(ans)
+
+@dp.message(Command("stat"))
+async def stat(message: types.Message):
+    username = message.from_user.username
+    if (username is None):
+        username = message.from_user.full_name
+    inf = users.get(username)
+    if not inf:
+        message.answer(f"Нет информации о данном пользователе")
+    else:
+        cntintg = inf["count"]
+        mnname = inf["mnname"]
+        await message.answer(f"Ник пользователя в маинкрафте:{mnname}\nКоличество отправленных сообщений на сервер: {cntintg}")
+
+@dp.message(Command("connect"))
+async def con(message: types.Message):
+    username = message.from_user.username
+    if (username is None):
+        username = message.from_user.full_name
+    inf = users.get(username)
+    if not inf:
+        await message.answer(f"Нет информации о данном пользователе")
+    else:
+        txt = message.text[8:].strip()
+        if not txt:
+            await message.answer(f"Имя не должно быть пустым")
+        else:
+            inf["mnname"] = txt
+            await db_logger.update(username, txt, inf["count"])
+            await message.answer(f"Информация успешно обновлена")
 
 
 @dp.message(F.chat.type.in_({"group", "supergroup"}))
@@ -31,11 +64,18 @@ async def group_message(message: types.Message):
         username = message.from_user.username
         if username is None:
             username = message.from_user.full_name
+        nw = users.get(username, {}).get("count", 0)
+        inf = users.get(username, {"mnname": "Неизвестен", "count": 0})
+        inf["count"] += 1
+        users[username] = inf
+        await db_logger.update(username, inf["mnname"], inf["count"])
         text = message.text or ""
         if text.startswith("/"):
             return
         if text:
-            await mc_rcon.send_message(username, text)
-
+            i = 0
+            while (i * 256 < len(text)):
+                await mc_rcon.send_message(username, text[i * 256: min((i + 1) * 256, len(text))])
+                i += 1
     except Exception as e:
         print(f"Ошибка отправки в MC: {e}")

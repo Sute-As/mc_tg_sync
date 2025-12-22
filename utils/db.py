@@ -39,6 +39,13 @@ class ChatLogger:
         ) ENGINE = ReplacingMergeTree()
         ORDER BY chat_id
         """)
+        self.client.command(f"""
+        CREATE TABLE IF NOT EXISTS {CH_DB}.users (
+            username String,
+            mnname String,
+            count UInt64
+        ) ENGINE = ReplacingMergeTree() ORDER BY username
+        """)
 
     def _insert_sync(self, source: str, user: str, message: str):
         if not self.client: return
@@ -62,14 +69,14 @@ class ChatLogger:
         result = self.client.query(f"SELECT chat_id FROM {CH_DB}.groups")
         return {row[0] for row in result.result_rows}
 
-    async def update_user(self, tg_username: str, mc_name: str, count: int):
+    async def update_user(self, username: str, mnname: str, count: int):
         if not self.client: return
-        data = [[tg_username, mc_name, count]]
-        self.client.insert(f'{CH_DB}.users', data, column_names=['tg_username', 'mc_name', 'msg_count'])
+        data = [[username, mnname, count]]
+        await asyncio.to_thread(self.client.insert, f'{CH_DB}.users', data, column_names=['username', 'mnname', 'count'])
 
     async def load_users(self):
         if not self.client: return {}
-        result = self.client.query(f"SELECT tg_username, mc_name, msg_count FROM {CH_DB}.users")
+        result = await asyncio.to_thread(self.client.query, f"SELECT username, mnname, count FROM {CH_DB}.users")
         return {row[0]: {"mnname": row[1], "count": row[2]} for row in result.result_rows}
 
 
