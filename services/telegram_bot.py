@@ -62,11 +62,11 @@ async def group_message(message: types.Message):
         username = message.from_user.username
         if username is None:
             username = message.from_user.full_name
-        nw = users.get(username, {}).get("count", 0)
-        inf = users.get(username, {"mnname": "Неизвестен", "count": 0})
-        inf["count"] += 1
-        users[username] = inf
-        await db_logger.update_user(username, inf["mnname"], inf["count"])
+        inf = users.get(username)
+        if (not inf):
+            await db_logger.update_user(username, "Неизвесетен", 1)
+        else:
+            await db_logger.update_user(username, inf["mnname"], inf["count"] + 1)
         text = message.text or ""
         if text.startswith("/"):
             return
