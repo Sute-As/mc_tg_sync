@@ -47,37 +47,43 @@ class ChatLogger:
         ) ENGINE = ReplacingMergeTree() ORDER BY username
         """)
 
-    def _insert_sync(self, source: str, user: str, message: str):
-        if not self.client: return
-        try:
-            data = [[datetime.now(), source, user, message]]
-            self.client.insert(f'{CH_DB}.chat_logs', data,
-                               column_names=['event_time', 'source', 'user_name', 'message'])
-        except Exception as e:
-            print(f"Ошибка записи лога в CH: {e}")
+    def _insert_log_sync(self, source: str, user: str, message: str):
+        data = [[datetime.now(), source, user, message]]
+        self.client.insert(f'{CH_DB}.chat_logs', data,
+                           column_names=['event_time', 'source', 'user_name', 'message'])
+
+    def _update_user_sync(self, username: str, mnname: str, count: int):
+        data = [[username, mnname, count]]
+        self.client.insert(f'{CH_DB}.users', data,
+                           column_names=['username', 'mnname', 'count'])
+
+    # В utils/db.py
+    def _load_users_sync(self):
+        if not self.client: return {}
+        query = f"SELECT username, mnname, count FROM {CH_DB}.users FINAL"
+        result = self.client.query(query)
+        return {row[0]: {"mnname": row[1], "count": row[2]} for row in result.result_rows}
 
     async def log_message(self, source: str, user: str, message: str):
-        await asyncio.to_thread(self._insert_sync, source, user, message)
+        if not self.client: return
+        await asyncio.to_thread(self._insert_log_sync, source, user, message)
 
     async def save_group(self, chat_id: int):
         if not self.client: return
-        self.client.command(f"INSERT INTO {CH_DB}.groups (chat_id) VALUES ({chat_id})")
+        await asyncio.to_thread(self.client.command, f"INSERT INTO {CH_DB}.groups (chat_id) VALUES ({chat_id})")
         print(f"Группа {chat_id} сохранена.")
 
     async def get_groups(self):
         if not self.client: return set()
-        result = self.client.query(f"SELECT chat_id FROM {CH_DB}.groups")
+        result = await asyncio.to_thread(self.client.query, f"SELECT chat_id FROM {CH_DB}.groups")
         return {row[0] for row in result.result_rows}
 
     async def update_user(self, username: str, mnname: str, count: int):
         if not self.client: return
-        data = [[username, mnname, count]]
-        await asyncio.to_thread(self.client.insert, f'{CH_DB}.users', data, column_names=['username', 'mnname', 'count'])
+        await asyncio.to_thread(self._update_user_sync, username, mnname, count)
 
     async def load_users(self):
         if not self.client: return {}
-        result = await asyncio.to_thread(self.client.query, f"SELECT username, mnname, count FROM {CH_DB}.users")
-        return {row[0]: {"mnname": row[1], "count": row[2]} for row in result.result_rows}
-
+        return await asyncio.to_thread(self._load_users_sync)
 
 db_logger = ChatLogger()

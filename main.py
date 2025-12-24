@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from services.telegram_bot import bot, dp, grps, users
+from services.telegram_bot import bot, dp, broadcast_logs, grps, users
 from services.mc_log_reader import watch_logs
 from utils.db import db_logger
 
@@ -8,6 +8,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 async def main():
+    queue = asyncio.Queue()
     saved_groups = await db_logger.get_groups()
     loaded_users = await db_logger.load_users()
     users.update(loaded_users)
@@ -18,8 +19,9 @@ async def main():
         print("Сохраненных групп пока нет.")
     await bot.delete_webhook(drop_pending_updates=True)
     polling_task = asyncio.create_task(dp.start_polling(bot))
-    watcher_task = asyncio.create_task(watch_logs(bot, grps))
-    await asyncio.gather(polling_task, watcher_task)
+    watcher_task = asyncio.create_task(watch_logs(queue))
+    broadcaster_task = asyncio.create_task(broadcast_logs(bot, queue))
+    await asyncio.gather(polling_task, watcher_task, broadcaster_task)
 
 
 if __name__ == "__main__":
